@@ -8,8 +8,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+
+// CONNECTION CODE START___
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@root-cluster.yqkit.mongodb.net/?retryWrites=true&w=majority&appName=root-Cluster`;
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -17,6 +18,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
 async function run() {
   try {
     await client.connect();
@@ -24,6 +26,39 @@ async function run() {
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+
+    // Collection Names
+    const gamesCollection = client.db("PlayGrid_DB").collection("all_games");
+    
+
+    
+    // ............Meal related APIs.............
+
+    // Add a new game
+    app.post("/all-games", async (req, res) => {
+      const newGame = req.body;
+      const result = await gamesCollection.insertOne(newGame);
+      res.send(result);
+    });
+     // load category games
+     app.get("/category-games", async (req, res) => {
+      const cursor = gamesCollection.find().limit(3);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // load specific game
+    app.get("/game/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await gamesCollection.findOne(query);
+      res.send(result);
+    });
+
+
+
+
+
+
   } finally {
     // await client.close();
   }
