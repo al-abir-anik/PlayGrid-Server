@@ -8,7 +8,6 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-
 // CONNECTION CODE START___
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@root-cluster.yqkit.mongodb.net/?retryWrites=true&w=majority&appName=root-Cluster`;
 const client = new MongoClient(uri, {
@@ -30,32 +29,35 @@ async function run() {
     // Collection Names
     const gamesCollection = client.db("PlayGrid_DB").collection("all-games");
     const newsCollection = client.db("PlayGrid_DB").collection("news");
-    
+    const upcomingNewsCollection = client
+      .db("PlayGrid_DB")
+      .collection("upcoming-news");
+
     // ............Game related APIs.............
-      // Load all games
-      app.get("/all-games", async (req, res) => {
-        const sort = req.query.sort;
-        const search = req.query.search;
-        let sortQuery = {};
-        let query = {};
-        // if (sort == "true") {
-        //   sortQuery = { expireDate: -1 };
-        // }
-        if (search) {
-          query.title = { $regex: search, $options: "i" };
-        }
-        const cursor = gamesCollection.find(query).sort(sortQuery);
-        const result = await cursor.toArray();
-        res.send(result);
-      });
+    // Load all games
+    app.get("/all-games", async (req, res) => {
+      const sort = req.query.sort;
+      const search = req.query.search;
+      let sortQuery = {};
+      let query = {};
+      // if (sort == "true") {
+      //   sortQuery = { expireDate: -1 };
+      // }
+      if (search) {
+        query.title = { $regex: search, $options: "i" };
+      }
+      const cursor = gamesCollection.find(query).sort(sortQuery);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
     // Add a new game
     app.post("/all-games", async (req, res) => {
       const newGame = req.body;
       const result = await gamesCollection.insertOne(newGame);
       res.send(result);
     });
-     // load category games
-     app.get("/category-games", async (req, res) => {
+    // load category games
+    app.get("/category-games", async (req, res) => {
       const cursor = gamesCollection.find().limit(5);
       const result = await cursor.toArray();
       res.send(result);
@@ -68,27 +70,25 @@ async function run() {
       res.send(result);
     });
 
-
-
-        // .............News related APIs.............
-         // Load all news
-      app.get("/all-news", async (req, res) => {
-        const sort = req.query.sort;
-        const search = req.query.search;
-        let sortQuery = {};
-        let query = {};
-        // if (sort == "true") {
-        //   sortQuery = { expireDate: -1 };
-        // }
-        if (search) {
-          query.title = { $regex: search, $options: "i" };
-        }
-        const cursor = gamesCollection.find(query).sort(sortQuery);
-        const result = await cursor.toArray();
-        res.send(result);
-      });
-       // load latest news
-     app.get("/latest-news", async (req, res) => {
+    // .............News related APIs.............
+    // Load all news
+    app.get("/all-news", async (req, res) => {
+      const sort = req.query.sort;
+      const search = req.query.search;
+      let sortQuery = {};
+      let query = {};
+      // if (sort == "true") {
+      //   sortQuery = { expireDate: -1 };
+      // }
+      if (search) {
+        query.title = { $regex: search, $options: "i" };
+      }
+      const cursor = newsCollection.find(query).sort(sortQuery);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // load latest news
+    app.get("/latest-news", async (req, res) => {
       const cursor = newsCollection.find().limit(4);
       const result = await cursor.toArray();
       res.send(result);
@@ -100,6 +100,18 @@ async function run() {
       const result = await newsCollection.findOne(query);
       res.send(result);
     });
+
+    // Load Upcoming News
+    app.get("/upcoming-news", async (req, res) => {
+      const cursor = upcomingNewsCollection.find().limit(4);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
+
+
+
 
 
 
