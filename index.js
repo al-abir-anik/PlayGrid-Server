@@ -73,23 +73,25 @@ async function run() {
     // .............News related APIs.............
     // Load all news
     app.get("/all-news", async (req, res) => {
-      const sort = req.query.sort;
-      const search = req.query.search;
-      let sortQuery = {};
-      let query = {};
-      // if (sort == "true") {
-      //   sortQuery = { expireDate: -1 };
-      // }
-      if (search) {
-        query.title = { $regex: search, $options: "i" };
-      }
-      const cursor = newsCollection.find(query).sort(sortQuery);
+      const currentPage = parseInt(req.query.page);
+      const itemsPerPage = parseInt(req.query.size);
+      const skipItems = (currentPage - 1) * itemsPerPage;
+      
+      const result = await newsCollection.find()
+      .skip(skipItems)
+      .limit(itemsPerPage)
+      .toArray();
+      res.send(result );
+    });
+    // Load Upcoming News
+    app.get("/upcoming-news", async (req, res) => {
+      const cursor = upcomingNewsCollection.find().limit(4);
       const result = await cursor.toArray();
       res.send(result);
     });
     // load latest news
     app.get("/latest-news", async (req, res) => {
-      const cursor = newsCollection.find().limit(4);
+      const cursor = newsCollection.find().limit(3);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -100,13 +102,15 @@ async function run() {
       const result = await newsCollection.findOne(query);
       res.send(result);
     });
-
-    // Load Upcoming News
-    app.get("/upcoming-news", async (req, res) => {
-      const cursor = upcomingNewsCollection.find().limit(4);
-      const result = await cursor.toArray();
-      res.send(result);
+    // Count Total News
+    app.get("/news-count", async (req, res) => {
+      
+      const count = await newsCollection.estimatedDocumentCount();
+      res.send({count});
     });
+
+
+
 
 
 
