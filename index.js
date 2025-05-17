@@ -28,6 +28,9 @@ async function run() {
 
     // Collection Names
     const gamesCollection = client.db("PlayGrid_DB").collection("all-games");
+    const upcomingGamesCollection = client
+      .db("PlayGrid_DB")
+      .collection("upcoming-games");
     const newsCollection = client.db("PlayGrid_DB").collection("news");
     const upcomingNewsCollection = client
       .db("PlayGrid_DB")
@@ -50,10 +53,10 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-    // Add a new game
-    app.post("/all-games", async (req, res) => {
-      const newGame = req.body;
-      const result = await gamesCollection.insertOne(newGame);
+    // Load Upcoming Games
+    app.get("/upcoming-games", async (req, res) => {
+      const cursor = upcomingGamesCollection.find().limit(5);
+      const result = await cursor.toArray();
       res.send(result);
     });
     // load category games
@@ -69,6 +72,17 @@ async function run() {
       const result = await gamesCollection.findOne(query);
       res.send(result);
     });
+    // Add a new game
+    app.post("/all-games", async (req, res) => {
+      const newGame = req.body;
+      const result = await gamesCollection.insertOne(newGame);
+      res.send(result);
+    });
+    // Count Total Games
+    app.get("/games-count", async (req, res) => {
+      const count = await gamesCollection.estimatedDocumentCount();
+      res.send({ count });
+    });
 
     // .............News related APIs.............
     // Load all news
@@ -76,12 +90,13 @@ async function run() {
       const currentPage = parseInt(req.query.page);
       const itemsPerPage = parseInt(req.query.size);
       const skipItems = (currentPage - 1) * itemsPerPage;
-      
-      const result = await newsCollection.find()
-      .skip(skipItems)
-      .limit(itemsPerPage)
-      .toArray();
-      res.send(result );
+
+      const result = await newsCollection
+        .find()
+        .skip(skipItems)
+        .limit(itemsPerPage)
+        .toArray();
+      res.send(result);
     });
     // Load Upcoming News
     app.get("/upcoming-news", async (req, res) => {
@@ -104,23 +119,9 @@ async function run() {
     });
     // Count Total News
     app.get("/news-count", async (req, res) => {
-      
       const count = await newsCollection.estimatedDocumentCount();
-      res.send({count});
+      res.send({ count });
     });
-
-
-
-
-
-
-
-
-
-
-
-
-
   } finally {
     // await client.close();
   }
