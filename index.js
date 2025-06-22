@@ -39,16 +39,41 @@ async function run() {
     // ............Game related APIs.............
     // Load all games
     app.get("/all-games", async (req, res) => {
-      const sort = req.query.sort;
       const search = req.query.search;
-      let sortQuery = {};
+      const priceOrder = req.query.priceOrder;
+      const genre = req.query.genre;
+      const priceRange = req.query.priceRange;
       let query = {};
-      // if (sort == "true") {
-      //   sortQuery = { expireDate: -1 };
-      // }
+      let sortQuery = {};
+
+      // Sort by Search
       if (search) {
         query.title = { $regex: search, $options: "i" };
       }
+      // Sort by Price Order
+      if (priceOrder === "low to high") {
+        sortQuery.price = 1;
+      } else if (priceOrder === "high to low") {
+        sortQuery.price = -1;
+      }
+      // Sort by Genre
+      if (genre) {
+        const genreArray = genre.split(",").map((g) => g.trim());
+        query.genre = { $in: genreArray };
+      }
+      // Sort by Price range
+      if (priceRange === "Free") {
+        query.price = 0;
+      } else if (priceRange === "$0 - $20") {
+        query.price = { $lte: 20 };
+      } else if (priceRange === "$21 - $40") {
+        query.price = { $lte: 40 };
+      } else if (priceRange === "$41 - $60") {
+        query.price = { $lte: 60 };
+      } else if (priceRange === "$61 and Higher") {
+        query.price = { $gt: 60 };
+      }
+
       const cursor = gamesCollection.find(query).sort(sortQuery);
       const result = await cursor.toArray();
       res.send(result);
@@ -61,7 +86,7 @@ async function run() {
     });
     // load category games
     app.get("/category-games", async (req, res) => {
-      const cursor = gamesCollection.find().limit(5);
+      const cursor = gamesCollection.find().limit(7);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -106,7 +131,7 @@ async function run() {
     });
     // load latest news
     app.get("/latest-news", async (req, res) => {
-      const cursor = newsCollection.find().limit(3);
+      const cursor = newsCollection.find().limit(2);
       const result = await cursor.toArray();
       res.send(result);
     });
