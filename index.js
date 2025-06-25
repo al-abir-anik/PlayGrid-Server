@@ -35,6 +35,12 @@ async function run() {
     const upcomingNewsCollection = client
       .db("PlayGrid_DB")
       .collection("upcoming-news");
+    const userGamesCollection = client
+      .db("PlayGrid_DB")
+      .collection("user-owned-games");
+    const userWishlistCollection = client
+      .db("PlayGrid_DB")
+      .collection("user-wishlist");
 
     // ............Game related APIs.............
     // Load all games
@@ -103,11 +109,6 @@ async function run() {
       const result = await gamesCollection.insertOne(newGame);
       res.send(result);
     });
-    // Count Total Games
-    app.get("/games-count", async (req, res) => {
-      const count = await gamesCollection.estimatedDocumentCount();
-      res.send({ count });
-    });
 
     // .............News related APIs.............
     // Load all news
@@ -147,6 +148,90 @@ async function run() {
       const count = await newsCollection.estimatedDocumentCount();
       res.send({ count });
     });
+
+    // .............USER related APIs.............
+    // load specific user games
+    app.get("/user-gamelist", async (req, res) => {
+      const email = req.query.email;
+      const userDoc = await userGamesCollection.findOne({ email });
+
+      const purchasedIds =
+        userDoc.purchased.map((p) => new ObjectId(p.gameId)) || [];
+      const favouritesIds =
+        userDoc.favourites.map((id) => new ObjectId(id)) || [];
+
+      const purchasedGames = await gamesCollection
+        .find({ _id: { $in: purchasedIds } })
+        .toArray();
+      const favouriteGames = await gamesCollection
+        .find({ _id: { $in: favouritesIds } })
+        .toArray();
+
+      res.send({ purchasedGames, favouriteGames });
+    });
+    // Update Favourite gamelist
+    app.patch("/user-gamelist", async (req, res) => {
+      const { email, gameId } = req.body;
+      const userDoc = await userGamesCollection.findOne({ email });
+      const isFavourite = userDoc.favourites.includes(gameId);
+      let result;
+
+      if (isFavourite) {
+        result = await userGamesCollection.updateOne(
+          { email },
+          { $pull: { favourites: gameId } }
+        );
+      } else {
+        result = await userGamesCollection.updateOne(
+          { email },
+          { $addToSet: { favourites: gameId } }
+        );
+      }
+      res.send(result);
+    });
+    // load specific user wishlist
+    app.get("/user-wishlist", async (req, res) => {
+      const email = req.query.email;
+      const userDoc = await userWishlistCollection.findOne({ email });
+      const wishlistGameIds =
+        userDoc.gameIds.map((id) => new ObjectId(id)) || [];
+
+      const result = await gamesCollection
+        .find({ _id: { $in: wishlistGameIds } })
+        .toArray();
+      res.send(result);
+    });
+    // delete game from user wishlist
+    app.patch("/user-gamelist", async (req, res) => {
+      const { email, gameId } = req.body;
+      const userDoc = await userGamesCollection.findOne({ email });
+      const isFavourite = userDoc.favourites.includes(gameId);
+
+      let result;
+
+      if (isFavourite) {
+        result = await userGamesCollection.updateOne(
+          { email },
+          { $pull: { favourites: gameId } }
+        );
+      } else {
+        result = await userGamesCollection.updateOne(
+          { email },
+          { $addToSet: { favourites: gameId } }
+        );
+      }
+      res.send(result);
+    });
+
+
+
+
+
+
+
+
+
+    
   } finally {
     // await client.close();
   }
