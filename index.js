@@ -41,61 +41,67 @@ async function run() {
     const userWishlistCollection = client
       .db("PlayGrid_DB")
       .collection("user-wishlist");
+    const usersCollection = client.db("PlayGrid_DB").collection("users");
 
     // ............Game related APIs.............
     // Load all games
     app.get("/all-games", async (req, res) => {
       const search = req.query.search;
-      const priceOrder = req.query.priceOrder;
       const genre = req.query.genre;
-      const priceRange = req.query.priceRange;
+      // const genreParam = req.query.genreParam;
+      // const priceOrder = req.query.priceOrder;
+      // const priceRange = req.query.priceRange;
       let query = {};
-      let sortQuery = {};
 
       // Sort by Search
       if (search) {
-        query.title = { $regex: search, $options: "i" };
+        query.name = { $regex: search, $options: "i" };
       }
-      // Sort by Price Order
-      if (priceOrder === "low to high") {
-        sortQuery.price = 1;
-      } else if (priceOrder === "high to low") {
-        sortQuery.price = -1;
-      }
-      // Sort by Genre
-      if (genre) {
-        const genreArray = genre.split(",").map((g) => g.trim());
-        query.genre = { $in: genreArray };
-      }
-      // Sort by Price range
-      if (priceRange === "Free") {
-        query.price = 0;
-      } else if (priceRange === "$0 - $20") {
-        query.price = { $lte: 20 };
-      } else if (priceRange === "$21 - $40") {
-        query.price = { $lte: 40 };
-      } else if (priceRange === "$41 - $60") {
-        query.price = { $lte: 60 };
-      } else if (priceRange === "$61 and Higher") {
-        query.price = { $gt: 60 };
+      if (genre && genre !== "undefined") {
+        query.genres = { $regex: new RegExp(genre, "i") };
       }
 
-      const cursor = gamesCollection.find(query).sort(sortQuery);
+      // Sort by Price Order
+      // if (priceOrder === "low to high") {
+      //   sortQuery.price = 1;
+      // } else if (priceOrder === "high to low") {
+      //   sortQuery.price = -1;
+      // }
+      // Sort by Genre
+      // if (genreParam) {
+      //   const genreArray = genreParam.split(",").map((g) => g.trim());
+      //   query.genre = { $in: genreArray };
+      // }
+      // Sort by Price range
+      // if (priceRange === "Free") {
+      //   query.price = 0;
+      // } else if (priceRange === "$0 - $20") {
+      //   query.price = { $lte: 20 };
+      // } else if (priceRange === "$21 - $40") {
+      //   query.price = { $lte: 40 };
+      // } else if (priceRange === "$41 - $60") {
+      //   query.price = { $lte: 60 };
+      // } else if (priceRange === "$61 and Higher") {
+      //   query.price = { $gt: 60 };
+      // }
+
+      // if (genre && genre !== "undefined") {
+      //   query.genre = new RegExp(`^${genre}$`, "i"); // case-insensitive match
+      // }
+
+      const projection = {
+        name: 1,
+        rating: 1,
+        regularPrice: 1,
+        offerPrice: 1,
+        poster: 1,
+      };
+
+      const cursor = gamesCollection.find(query, { projection });
       const result = await cursor.toArray();
       res.send(result);
     });
-    // Load Upcoming Games
-    app.get("/upcoming-games", async (req, res) => {
-      const cursor = upcomingGamesCollection.find().limit(5);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
-    // load category games
-    app.get("/category-games", async (req, res) => {
-      const cursor = gamesCollection.find().limit(7);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+
     // load specific game
     app.get("/game/:id", async (req, res) => {
       const id = req.params.id;
@@ -103,6 +109,21 @@ async function run() {
       const result = await gamesCollection.findOne(query);
       res.send(result);
     });
+
+    // Load Upcoming Games
+    app.get("/upcoming-games", async (req, res) => {
+      const cursor = upcomingGamesCollection.find().limit(2);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // load category games
+    // app.get("/category-games", async (req, res) => {
+    //   const cursor = gamesCollection.find();
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
+
     // Add a new game
     app.post("/all-games", async (req, res) => {
       const newGame = req.body;
@@ -179,6 +200,7 @@ async function run() {
 
       res.send({ purchasedGames, favouriteGames });
     });
+
     // Update Favourite gamelist
     app.patch("/user-gamelist", async (req, res) => {
       const { email, gameId } = req.body;
@@ -199,39 +221,131 @@ async function run() {
       }
       res.send(result);
     });
-    // load specific user wishlist
-    app.get("/user-wishlist", async (req, res) => {
+
+    // .......CARTLIST Realated APIs.........
+    // load user cart games
+    app.get("/user-cartlist", async (req, res) => {
       const email = req.query.email;
-      const userDoc = await userWishlistCollection.findOne({ email });
-      const wishlistGameIds =
-        userDoc.gameIds.map((id) => new ObjectId(id)) || [];
+      const userDoc = await usersCollection.findOne({ email });
+      // convert gameID strings to ObjectId
+      const cartItemIds = userDoc.cartItems.map((id) => new ObjectId(id));
 
       const result = await gamesCollection
-        .find({ _id: { $in: wishlistGameIds } })
+        .find(
+          { _id: { $in: cartItemIds } },
+          {
+            projection: {
+              _id: 1,
+              name: 1,
+              poster: 1,
+              regularPrice: 1,
+              offerPrice: 1,
+              platform: 1,
+              developer: 1,
+            },
+          }
+        )
         .toArray();
       res.send(result);
     });
-    // Add a game in user wishlist
-    app.patch("/user-wishlist/add", async (req, res) => {
+
+    // add product in user cartlist
+    app.post("/add-to-cart", async (req, res) => {
       const { email, gameId } = req.body;
 
-      const result = await userWishlistCollection.updateOne(
+      const result = await usersCollection.updateOne(
         { email },
-        { $addToSet: { gameIds: gameId } },
-        { upsert: true }
+        { $push: { cartItems: gameId } }
       );
       res.send(result);
     });
-    // Remove a game from user wishlist
-    app.patch("/user-wishlist/remove", async (req, res) => {
-      const { email, gameId } = req.body;
 
-      const result = await userWishlistCollection.updateOne(
+    // delete a item from cartlist
+    app.patch("/delete-cartItem", async (req, res) => {
+      const { email, cartItem } = req.body;
+
+      const result = await usersCollection.updateOne(
         { email },
-        { $pull: { gameIds: gameId } }
+        { $pull: { cartItems: cartItem } }
       );
       res.send(result);
     });
+
+    // move a cartitem to wishlist
+    app.patch("/move-to-wishlist", async (req, res) => {
+      const { email, gameId } = req.body;
+      const user = await usersCollection.findOne({ email });
+
+      const removeFromCart = await usersCollection.updateOne(
+        { email },
+        { $pull: { cartItems: gameId } }
+      );
+
+      const addToWishlist = await usersCollection.updateOne(
+        { email },
+        { $addToSet: { wishItems: gameId } }
+      );
+
+      res.send(removeFromCart, addToWishlist);
+    });
+
+    // .......WISHLIST Realated APIs.........
+    // load user wishlist
+    app.get("/user-wishlist", async (req, res) => {
+      const email = req.query.email;
+      const userDoc = await usersCollection.findOne({ email });
+      const wishItemIds = userDoc.wishItems.map((id) => new ObjectId(id));
+
+      const result = await gamesCollection
+        .find(
+          { _id: { $in: wishItemIds } },
+          {
+            projection: {
+              _id: 1,
+              name: 1,
+              poster: 1,
+              regularPrice: 1,
+              offerPrice: 1,
+              platform: 1,
+              developer: 1,
+            },
+          }
+        )
+        .toArray();
+      res.send(result);
+    });
+
+    // Add a game in wishlist
+    app.post("/add-to-wishlist", async (req, res) => {
+      const { email, gameId } = req.body;
+
+      const result = await usersCollection.updateOne(
+        { email },
+        { $push: { wishItems: gameId } }
+      );
+      res.send(result);
+    });
+
+    // delete a item from wishlist
+    app.patch("/delete-wishItem", async (req, res) => {
+      const { email, wishItem } = req.body;
+
+      const result = await usersCollection.updateOne(
+        { email },
+        { $pull: { wishItems: wishItem } }
+      );
+      res.send(result);
+    });
+
+
+
+
+
+
+
+
+
+    
   } finally {
     // await client.close();
   }
